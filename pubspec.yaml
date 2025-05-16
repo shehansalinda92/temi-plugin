@@ -2,6 +2,7 @@ name: temi
 description: "Temi Flutter plugin"
 version: 0.0.1
 homepage:
+repository: "https://github.com/shehansalinda92/temi-plugin.git"
 
 environment:
   sdk: ^3.7.2
