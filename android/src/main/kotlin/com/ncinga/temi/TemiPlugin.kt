@@ -1,7 +1,11 @@
 package com.ncinga.temi
 
 import android.app.Activity
+import android.content.Context
 import android.util.Log
+import com.ncinga.temi.service.DetectionService
+import com.ncinga.temi.service.FaceRecognitionService
+import com.ncinga.temi.service.FollowingService
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -11,19 +15,28 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import com.robotemi.sdk.Robot
 import com.ncinga.temi.service.RobotMovementService
+import com.ncinga.temi.service.TTSService
+import com.robotemi.sdk.constants.HomeScreenMode
+import kotlinx.coroutines.withContext
 
 class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private lateinit var channel: MethodChannel
     private var activity: Activity? = null
     private var robot: Robot? = null
     private var movementService: RobotMovementService? = null
+    private var detectionService: DetectionService? = null
+    private var ttsService: TTSService? = null
+    private var followingService: FollowingService? = null
+    private var faceRecognitionService: FaceRecognitionService? = null
     private val TAG = "TEMI"
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         Log.d(TAG, "onAttachedToEngine called")
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "temi")
         channel.setMethodCallHandler(this)
+
     }
+
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         Log.d(TAG, "onAttachedToActivity called")
@@ -33,10 +46,19 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
     private fun initializeRobot() {
         try {
+
             robot = Robot.getInstance()
             robot?.let {
                 movementService = RobotMovementService(it)
-                Log.i(TAG, "Robot and movement service initialized")
+                detectionService = DetectionService(channel, it)
+                ttsService = TTSService(channel, it)
+                followingService = FollowingService(channel, it)
+                faceRecognitionService =
+                    FaceRecognitionService(channel, it, activity!!.applicationContext)
+                robot?.requestToBeKioskApp()
+                robot?.setKioskModeOn(true, HomeScreenMode.APPLICATION)
+                Log.i(TAG, "service initialized")
+
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize robot: ${e.message}")
@@ -56,11 +78,39 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 handleSkidJoy(call, result)
             }
 
+            "startDetectionListening" -> {
+                result.success("Listening started")
+            }
+
+            "stopDetectionListening" -> {
+                detectionService?.cleanupDetectionLister()
+                result.success("Listening stopped")
+            }
+
+            "startSpeakListening" -> {
+                result.success("Listening started")
+            }
+
+            "stopSpeakListening" -> {
+                result.success("Listening stopped")
+                ttsService?.cleanupTTSService()
+            }
+
+            "speak" -> {
+                handleSpeak(call, result)
+            }
+
             else -> {
                 Log.w(TAG, "Method not implemented: ${call.method}")
                 result.notImplemented()
             }
         }
+    }
+
+    private fun handleSpeak(call: MethodCall, result: Result) {
+        val text = call.argument<String>("text")
+        if (text != null) ttsService?.speak(text)
+
     }
 
     private fun handleSkidJoy(call: MethodCall, result: Result) {
@@ -83,9 +133,7 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
             if (movementService == null) {
                 result.error(
-                    "ROBOT_NOT_INITIALIZED",
-                    "Robot movement service is not initialized",
-                    null
+                    "ROBOT_NOT_INITIALIZED", "Robot movement service is not initialized", null
                 )
                 return
             }
@@ -121,5 +169,6 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         Log.d(TAG, "onDetachedFromEngine called")
         channel.setMethodCallHandler(null)
+        detectionService?.cleanupDetectionLister()
     }
 }
