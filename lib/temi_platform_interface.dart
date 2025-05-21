@@ -79,6 +79,14 @@ abstract class TemiPlatform extends PlatformInterface {
     );
   }
 
+  void setOnTonFaceRecognizedListener(
+    Function(Map<dynamic, dynamic> faceData) callback,
+  ) {
+    throw UnimplementedError(
+      'setOnTonFaceRecognizedListener() has not been implemented.',
+    );
+  }
+
   Future<bool> speak(String text) {
     throw UnimplementedError('speak() has not been implemented.');
   }
@@ -131,5 +139,19 @@ abstract class TemiPlatform extends PlatformInterface {
 
   Future<bool> setTrackUser(bool enabled) {
     throw UnimplementedError('setTrackUser() has not been implemented.');
+  }
+
+  Future<bool> registerFace(String fileUri, String userId, String userName) {
+    throw UnimplementedError('registerFace() has not been implemented.');
+  }
+
+  Future<bool> startFaceRecognition() {
+    throw UnimplementedError(
+      'startFaceRecognition() has not been implemented.',
+    );
+  }
+
+  Future<bool> stopFaceRecognition() {
+    throw UnimplementedError('stopFaceRecognition() has not been implemented.');
   }
 }

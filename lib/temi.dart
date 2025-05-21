@@ -52,19 +52,43 @@ class Temi {
   }
 
   void setOnGoToLocationStatusChangedListener(
-      Function(String location, String status, int descriptionId, String description) callback
-      ) {
+    Function(
+      String location,
+      String status,
+      int descriptionId,
+      String description,
+    )
+    callback,
+  ) {
     TemiPlatform.instance.setOnGoToLocationStatusChangedListener(callback);
   }
 
   void setOnTtsStatusChangedListener(
-      Function(String id, String text, String status) callback
-      ) {
+    Function(String id, String text, String status) callback,
+  ) {
     TemiPlatform.instance.setOnTtsStatusChangedListener(callback);
+  }
+
+  void setOnTonFaceRecognizedListener(
+    Function(Map<dynamic, dynamic> faceData) callback,
+  ) {
+    TemiPlatform.instance.setOnTonFaceRecognizedListener(callback);
   }
 
   Future<bool> speak(String text) {
     return TemiPlatform.instance.speak(text);
+  }
+
+  Future<bool> registerFace(String fileUri, String userId, String userName) {
+    return TemiPlatform.instance.registerFace(fileUri, userId, userName);
+  }
+
+  Future<bool> startFaceRecognition() {
+    return TemiPlatform.instance.startFaceRecognition();
+  }
+
+  Future<bool> stopFaceRecognition() {
+    return TemiPlatform.instance.stopFaceRecognition();
   }
 
   Future<bool> goTo(String location) {
@@ -121,12 +145,24 @@ class Temi {
     Function(int)? onDetectionStateChanged,
     Function(String, String, int, String)? onGoToLocationStatusChanged,
     Function(String, String, String)? onTtsStatusChanged,
+    Function(Map<dynamic, dynamic> faceData)? onFaceRecognized,
   }) {
     if (onRobotReady != null) setOnRobotReadyListener(onRobotReady);
-    if (onUserInteraction != null) setOnUserInteractionListener(onUserInteraction);
-    if (onDetectionStateChanged != null) setOnDetectionStateChangedListener(onDetectionStateChanged);
-    if (onGoToLocationStatusChanged != null) setOnGoToLocationStatusChangedListener(onGoToLocationStatusChanged);
-    if (onTtsStatusChanged != null) setOnTtsStatusChangedListener(onTtsStatusChanged);
+    if (onUserInteraction != null) {
+      setOnUserInteractionListener(onUserInteraction);
+    }
+    if (onDetectionStateChanged != null) {
+      setOnDetectionStateChangedListener(onDetectionStateChanged);
+    }
+    if (onGoToLocationStatusChanged != null) {
+      setOnGoToLocationStatusChangedListener(onGoToLocationStatusChanged);
+    }
+    if (onTtsStatusChanged != null) {
+      setOnTtsStatusChangedListener(onTtsStatusChanged);
+    }
+    if (onFaceRecognized != null) {
+      setOnTonFaceRecognizedListener(onFaceRecognized);
+    }
   }
 
   Future<void> initialize({
@@ -140,36 +176,34 @@ class Temi {
     await setPrivacyMode(privacyMode);
   }
 
-
   Future<void> dispose() async {
     await stopDetectionListening();
   }
-
 
   Future<bool> moveForwardLeft({double speed = 0.5}) {
     final normalizedSpeed = speed * 0.707;
     return skidJoy(-normalizedSpeed, normalizedSpeed);
   }
 
-
   Future<bool> moveForwardRight({double speed = 0.5}) {
     final normalizedSpeed = speed * 0.707;
     return skidJoy(normalizedSpeed, normalizedSpeed);
   }
-
 
   Future<bool> moveBackwardLeft({double speed = 0.5}) {
     final normalizedSpeed = speed * 0.707;
     return skidJoy(-normalizedSpeed, -normalizedSpeed);
   }
 
-
   Future<bool> moveBackwardRight({double speed = 0.5}) {
     final normalizedSpeed = speed * 0.707;
     return skidJoy(normalizedSpeed, -normalizedSpeed);
   }
 
-  Future<void> executeMovementSequence(List<Future<bool> Function()> movements, {Duration delay = const Duration(milliseconds: 500)}) async {
+  Future<void> executeMovementSequence(
+    List<Future<bool> Function()> movements, {
+    Duration delay = const Duration(milliseconds: 500),
+  }) async {
     for (final movement in movements) {
       await movement();
       await Future.delayed(delay);

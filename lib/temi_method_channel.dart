@@ -15,6 +15,7 @@ class MethodChannelTemi extends TemiPlatform {
   Function(int)? _onDetectionStateChangedCallback;
   Function(String, String, int, String)? _onGoToLocationStatusChangedCallback;
   Function(String, String, String)? _onTtsStatusChangedCallback;
+  Function(Map<dynamic, dynamic> faceData)? _onTonFaceRecognizedChangedCallback;
 
   MethodChannelTemi() {
     // Set up method call handler for receiving events from native side
@@ -28,7 +29,9 @@ class MethodChannelTemi extends TemiPlatform {
         _onRobotReadyCallback?.call(call.arguments['isReady'] ?? false);
         break;
       case 'onUserInteraction':
-        _onUserInteractionCallback?.call(call.arguments['isInteracting'] ?? false);
+        _onUserInteractionCallback?.call(
+          call.arguments['isInteracting'] ?? false,
+        );
         break;
       case 'onDetectionStateChanged':
         _onDetectionStateChangedCallback?.call(call.arguments['state'] ?? 0);
@@ -94,7 +97,6 @@ class MethodChannelTemi extends TemiPlatform {
     }
   }
 
-
   @override
   void setOnRobotReadyListener(Function(bool isReady) callback) {
     _onRobotReadyCallback = callback;
@@ -112,18 +114,30 @@ class MethodChannelTemi extends TemiPlatform {
 
   @override
   void setOnGoToLocationStatusChangedListener(
-      Function(String location, String status, int descriptionId, String description) callback
-      ) {
+    Function(
+      String location,
+      String status,
+      int descriptionId,
+      String description,
+    )
+    callback,
+  ) {
     _onGoToLocationStatusChangedCallback = callback;
   }
 
   @override
   void setOnTtsStatusChangedListener(
-      Function(String id, String text, String status) callback
-      ) {
+    Function(String id, String text, String status) callback,
+  ) {
     _onTtsStatusChangedCallback = callback;
   }
 
+  @override
+  void setOnTonFaceRecognizedListener(
+    Function(Map<dynamic, dynamic> faceData) callback,
+  ) {
+    _onTonFaceRecognizedChangedCallback = callback;
+  }
 
   @override
   Future<bool> speak(String text) async {
@@ -138,6 +152,50 @@ class MethodChannelTemi extends TemiPlatform {
     }
   }
 
+  @override
+  Future<bool> registerFace(
+    String fileUri,
+    String userId,
+    String userName,
+  ) async {
+    try {
+      final result = await methodChannel.invokeMethod<bool>('registerFace', {
+        'fileUri': fileUri,
+        'userId': userId,
+        'username': userName,
+      });
+      return result ?? false;
+    } on PlatformException catch (e) {
+      debugPrint('Error adding face: ${e.message}');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> startFaceRecognition() async {
+    try {
+      final result = await methodChannel.invokeMethod<bool>(
+        'startFaceRecognition',
+      );
+      return result ?? false;
+    } on PlatformException catch (e) {
+      debugPrint('Error calling goTo: ${e.message}');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> stopFaceRecognition() async {
+    try {
+      final result = await methodChannel.invokeMethod<bool>(
+        'stopFaceRecognition',
+      );
+      return result ?? false;
+    } on PlatformException catch (e) {
+      debugPrint('Error calling goTo: ${e.message}');
+      return false;
+    }
+  }
 
   @override
   Future<bool> goTo(String location) async {
@@ -173,7 +231,6 @@ class MethodChannelTemi extends TemiPlatform {
       return false;
     }
   }
-
 
   @override
   Future<List<String>> getLocations() async {
@@ -231,7 +288,9 @@ class MethodChannelTemi extends TemiPlatform {
   @override
   Future<bool> isPrivacyModeEnabled() async {
     try {
-      final result = await methodChannel.invokeMethod<bool>('isPrivacyModeEnabled');
+      final result = await methodChannel.invokeMethod<bool>(
+        'isPrivacyModeEnabled',
+      );
       return result ?? false;
     } on PlatformException catch (e) {
       debugPrint('Error calling isPrivacyModeEnabled: ${e.message}');
@@ -264,13 +323,13 @@ class MethodChannelTemi extends TemiPlatform {
     }
   }
 
-
   @override
   Future<bool> setDetectionMode(bool enabled) async {
     try {
-      final result = await methodChannel.invokeMethod<bool>('setDetectionMode', {
-        'enabled': enabled,
-      });
+      final result = await methodChannel.invokeMethod<bool>(
+        'setDetectionMode',
+        {'enabled': enabled},
+      );
       return result ?? false;
     } on PlatformException catch (e) {
       debugPrint('Error calling setDetectionMode: ${e.message}');

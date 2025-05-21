@@ -17,7 +17,7 @@ import com.robotemi.sdk.Robot
 import com.ncinga.temi.service.RobotMovementService
 import com.ncinga.temi.service.TTSService
 import com.robotemi.sdk.constants.HomeScreenMode
-import kotlinx.coroutines.withContext
+
 
 class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private lateinit var channel: MethodChannel
@@ -79,31 +79,115 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             }
 
             "startDetectionListening" -> {
-                result.success("Listening started")
+                handlingStartDetectionListening(call, result)
             }
 
             "stopDetectionListening" -> {
-                detectionService?.cleanupDetectionLister()
-                result.success("Listening stopped")
+                handlingStopDetectionListening(call, result)
             }
 
             "startSpeakListening" -> {
-                result.success("Listening started")
+                handlingStartSpeakListening(call, result)
             }
 
             "stopSpeakListening" -> {
-                result.success("Listening stopped")
-                ttsService?.cleanupTTSService()
+                handlingStopSpeakListening(call, result)
             }
 
             "speak" -> {
                 handleSpeak(call, result)
             }
 
+            "registerFace" -> {
+                handleRegisterFace(call, result)
+            }
+
+            "startFaceRecognition" -> {
+                handlingStartFaceRecognition(call, result)
+            }
+
+            "stopFaceRecognition" -> {
+                handlingStopFaceRecognition(call, result)
+            }
+
+
             else -> {
                 Log.w(TAG, "Method not implemented: ${call.method}")
                 result.notImplemented()
             }
+        }
+    }
+
+    private fun handlingStartSpeakListening(call: MethodCall, result: Result) {
+        try {
+            result.success("Start Speak Listening start")
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("START_SPEAK_LISTING", e.message, e.stackTraceToString())
+        }
+    }
+
+    private fun handlingStopSpeakListening(call: MethodCall, result: Result) {
+        try {
+            result.success("Listening stopped")
+            ttsService?.cleanupTTSService()
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("STOP_SPEAK_LISTING", e.message, e.stackTraceToString())
+        }
+    }
+
+
+    private fun handlingStartDetectionListening(call: MethodCall, result: Result) {
+        try {
+            result.success("Start Detection Listening start")
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("START_DETECTION_LISTING", e.message, e.stackTraceToString())
+        }
+    }
+
+    private fun handlingStopDetectionListening(call: MethodCall, result: Result) {
+        try {
+            detectionService?.cleanupDetectionLister()
+            result.success(true)
+            result.success("Stop Detection Listening start")
+        } catch (e: Exception) {
+            result.error("STOP_DETECTION_LISTING", e.message, e.stackTraceToString())
+        }
+    }
+
+    private fun handlingStartFaceRecognition(call: MethodCall, result: Result) {
+        try {
+            faceRecognitionService!!.startFaceRecognition();
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("START_FACE_RECOGNITION", e.message, e.stackTraceToString())
+        }
+    }
+
+    private fun handlingStopFaceRecognition(call: MethodCall, result: Result) {
+        try {
+            faceRecognitionService!!.stopFaceRecognition();
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("STOP_FACE_RECOGNITION", e.message, e.stackTraceToString())
+        }
+    }
+
+    private fun handleRegisterFace(call: MethodCall, result: Result) {
+        val fileUri = call.argument<String>("fileUri")
+        val userId = call.argument<String>("userId")
+        val username = call.argument<String>("username")
+        if (fileUri == null || userId == null || username == null) {
+            result.error("INVALID_ARGUMENTS", "Missing required arguments", null)
+            return
+        }
+        try {
+            faceRecognitionService!!.registerFace(fileUri, userId, username)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("REGISTRATION_ERROR", e.message, e.stackTraceToString())
         }
     }
 

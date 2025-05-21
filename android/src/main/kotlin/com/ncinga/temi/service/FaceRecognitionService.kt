@@ -9,6 +9,8 @@ import com.robotemi.sdk.Robot
 import com.robotemi.sdk.face.ContactModel
 import com.robotemi.sdk.face.OnFaceRecognizedListener
 import io.flutter.plugin.common.MethodChannel
+import org.json.JSONArray
+import org.json.JSONObject
 
 class FaceRecognitionService(
     private val channel: MethodChannel,
@@ -17,7 +19,7 @@ class FaceRecognitionService(
 ) :
     OnFaceRecognizedListener {
     private var contentResolver: ContentResolver? = null
-    private val TAG = "ImageRecognitionService"
+    private val TAG = "FaceRecognitionService"
 
 
     init {
@@ -36,9 +38,11 @@ class FaceRecognitionService(
         robot.stopFaceRecognition()
     }
 
-    fun registerFace() {
+    fun registerFace(fileUri: String, userId: String, username: String) {
         val contentValues = ContentValues()
-        contentValues.put("test", "abc")
+        contentValues.put("uid", userId)
+        contentValues.put("username", username)
+        contentValues.put("uri", fileUri)
         contentResolver!!.insert(
             Uri.parse("content://com.robotemi.sdk.TemiSdkDocumentContentProvider/face"),
             contentValues
@@ -48,7 +52,34 @@ class FaceRecognitionService(
 
 
     override fun onFaceRecognized(contactModelList: List<ContactModel>) {
+        Log.i(TAG, "onFaceRecognized: ${contactModelList.size} faces recognized")
+        val recognizedFaces = JSONArray()
+        for (contact in contactModelList) {
+            try {
+                val faceData = JSONObject()
+                faceData.put("uid", contact.userId)
+                faceData.put("firstName", contact.firstName)
+                faceData.put("lastName", contact.lastName)
+                recognizedFaces.put(faceData)
+                val arguments = HashMap<String, Any>()
+//                arguments["uid"] = contact.userId
+//                arguments["username"] = contact.userId
+//                arguments["firstName"] = contact.firstName
+//                arguments["lastName"] = contact.lastName
+                channel.invokeMethod("onFaceRecognized", arguments)
 
+                Log.i(TAG, "Recognized face: ${contact.userId} (${contact.userId})")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing recognized face: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+        if (contactModelList.isNotEmpty()) {
+            val arguments = HashMap<String, Any>()
+            arguments["faces"] = recognizedFaces.toString()
+
+            channel.invokeMethod("onFacesRecognized", arguments)
+        }
     }
 
     fun cleanUpRecognized() {

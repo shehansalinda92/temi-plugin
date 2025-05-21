@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-
+import 'dart:io';
+import 'package:camera/camera.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import 'package:flutter/services.dart';
 import 'package:temi/temi.dart';
+import 'package:native_toast/native_toast.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final cameras = await availableCameras();
+  runApp(MyApp(cameras: cameras));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final List<CameraDescription> cameras;
+
+  const MyApp({super.key, required this.cameras});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -17,10 +25,13 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final _temi = Temi();
+  final TextEditingController _userId = TextEditingController();
+  final TextEditingController _username = TextEditingController();
   double _xValue = 0.0;
   double _yValue = 0.0;
   bool _smartMode = false;
-
+  late CameraController _controller;
+  late Future<void> _initializeControllerFuture;
   String _robotStatus = 'Unknown';
   String _detectionState = 'Unknown';
   String _userInteraction = 'None';
@@ -28,6 +39,9 @@ class _MyAppState extends State<MyApp> {
   bool _isRobotReady = false;
   List<String> _locations = [];
   String _currentSpeechText = '';
+  bool _isCameraInitialized = false;
+  XFile? _capturedImage;
+  String regFace = "";
 
   Future<void> _moveRobot() async {
     final success = await _temi.skidJoy(_xValue, _yValue, smart: _smartMode);
@@ -60,29 +74,108 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Future<void> _performGreeting() async {
-    //await _temi.greetUser();
+  Future<void> _registerFace() async {
+    if (_capturedImage != null &&
+        _userId.text.isNotEmpty &&
+        _username.text.isNotEmpty) {
+      String imagePath = _capturedImage!.path;
+      _temi
+          .registerFace(imagePath, _userId.text, _username.text)
+          .then(
+            (result) async => {
+              if (!result)
+                {
+                  await NativeToast().makeText(
+                    message: "Face registration unsuccessfully...",
+                    duration: NativeToast.shortLength,
+                  ),
+                }
+              else if (result)
+                {
+                  await NativeToast().makeText(
+                    message: "Face registration successfully...",
+                    duration: NativeToast.shortLength,
+                  ),
+                },
+            },
+          )
+          .catchError((error) => {print("Error : ${error}")});
+    } else {
+      await NativeToast().makeText(
+        message: "Please take photo and fill user id and username",
+        duration: NativeToast.shortLength,
+      );
+      print("Required field missing");
+    }
   }
 
-  Future<void> _performGoodbye() async {
-    //await _temi.sayGoodbye();
+  Future<void> _startFaceRecognition() async {
+    await _temi.startFaceRecognition();
   }
 
-  Future<void> _emergencyStop() async {
-    // await _temi.emergencyStop();
+  Future<void> _stopFaceRecognition() async {
+    await _temi.stopFaceRecognition();
+  }
+
+  Future<void> _performGreeting() async {}
+
+  Future<void> _performGoodbye() async {}
+
+  Future<void> _emergencyStop() async {}
+
+  Future<void> _initializeCamera() async {
+    try {
+      _controller = CameraController(
+        widget.cameras[0],
+        ResolutionPreset.medium,
+      );
+      _initializeControllerFuture = _controller.initialize();
+      await _initializeControllerFuture;
+      setState(() {
+        _isCameraInitialized = true;
+      });
+    } catch (e) {
+      print('Error initializing camera: $e');
+    }
+  }
+
+  Future<void> _captureImage() async {
+    try {
+      await _initializeControllerFuture;
+      final image = await _controller.takePicture();
+      setState(() {
+        _capturedImage = image;
+      });
+
+      final directory = await getApplicationDocumentsDirectory();
+      final fileName =
+          'temi_capture_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final savedImagePath = path.join(directory.path, fileName);
+
+      await File(image.path).copy(savedImagePath);
+      print('Image saved to: $savedImagePath');
+
+      _temi.speak("Image captured successfully");
+    } catch (e) {
+      print('Error capturing image: $e');
+    }
   }
 
   @override
   void initState() {
     super.initState();
-
     _temi.initialize(
       enableDetection: true,
       enableUserTracking: false,
       privacyMode: false,
     );
 
+    _initializeCamera();
+
     _temi.setupAllListeners(
+      onFaceRecognized: (faces) {
+        print("detected faces : ${faces}");
+      },
       onRobotReady: (isReady) {
         setState(() {
           _isRobotReady = isReady;
@@ -94,7 +187,7 @@ class _MyAppState extends State<MyApp> {
       },
       onUserInteraction: (isInteracting) {
         if (isInteracting) {
-          _temi.speak("User interact wit me ");
+          _temi.speak("User interact with me");
         }
         setState(() {
           _userInteraction = isInteracting ? 'Interacting' : 'Not Interacting';
@@ -130,7 +223,6 @@ class _MyAppState extends State<MyApp> {
       },
     );
 
-    // Update robot info periodically
     Timer.periodic(const Duration(seconds: 10), (timer) {
       if (_isRobotReady) {
         _updateRobotInfo();
@@ -141,6 +233,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void dispose() {
     _temi.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -157,7 +250,6 @@ class _MyAppState extends State<MyApp> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Robot Status Card
               Card(
                 elevation: 4,
                 child: Padding(
@@ -203,7 +295,6 @@ class _MyAppState extends State<MyApp> {
 
               SizedBox(height: 16),
 
-              // Manual Movement Controls
               Card(
                 elevation: 4,
                 child: Padding(
@@ -263,7 +354,6 @@ class _MyAppState extends State<MyApp> {
 
               SizedBox(height: 16),
 
-              // Quick Movement Buttons
               Card(
                 elevation: 4,
                 child: Padding(
@@ -329,7 +419,6 @@ class _MyAppState extends State<MyApp> {
 
               SizedBox(height: 16),
 
-              // Advanced Movement Patterns
               Card(
                 elevation: 4,
                 child: Padding(
@@ -383,7 +472,6 @@ class _MyAppState extends State<MyApp> {
 
               SizedBox(height: 16),
 
-              // Speech Controls
               Card(
                 elevation: 4,
                 child: Padding(
@@ -436,7 +524,6 @@ class _MyAppState extends State<MyApp> {
 
               SizedBox(height: 16),
 
-              // Navigation Controls
               Card(
                 elevation: 4,
                 child: Padding(
@@ -496,7 +583,6 @@ class _MyAppState extends State<MyApp> {
 
               SizedBox(height: 16),
 
-              // Robot Settings
               Card(
                 elevation: 4,
                 child: Padding(
@@ -538,7 +624,6 @@ class _MyAppState extends State<MyApp> {
                           ),
                           ElevatedButton.icon(
                             onPressed: () async {
-                              // final health = await _temi.getHealthStatus();
                               showDialog(
                                 context: context,
                                 builder:
@@ -559,6 +644,147 @@ class _MyAppState extends State<MyApp> {
                             label: Text('Health Check'),
                           ),
                         ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 16),
+              Card(
+                elevation: 4,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Face Regeneration',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width,
+                        height: 400,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  Wrap(
+                                    spacing: 2,
+                                    children: [
+                                      ElevatedButton.icon(
+                                        onPressed: _startFaceRecognition,
+                                        icon: Icon(Icons.play_circle),
+                                        label: Text('Start Face Recognition'),
+                                      ),
+                                      ElevatedButton.icon(
+                                        onPressed: _stopFaceRecognition,
+                                        icon: Icon(Icons.stop_circle),
+                                        label: Text('Stop Face Recognition'),
+                                      ),
+                                      ElevatedButton.icon(
+                                        onPressed: _registerFace,
+                                        icon: Icon(Icons.face),
+                                        label: Text('Register Face'),
+                                      ),
+                                    ],
+                                  ),
+
+                                  TextField(
+                                    controller: _userId,
+                                    decoration: InputDecoration(
+                                      labelText: "User Id",
+                                    ),
+                                  ),
+                                  TextField(
+                                    controller: _username,
+                                    decoration: InputDecoration(
+                                      labelText: "User Name",
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              flex: 3,
+                              child:
+                                  _isCameraInitialized
+                                      ? Stack(
+                                        alignment: Alignment.bottomCenter,
+                                        children: [
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: Colors.grey.shade300,
+                                              ),
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child:
+                                                  _capturedImage != null
+                                                      ? Image.file(
+                                                        File(
+                                                          _capturedImage!.path,
+                                                        ),
+                                                        fit: BoxFit.cover,
+                                                        width: double.infinity,
+                                                        height: double.infinity,
+                                                      )
+                                                      : CameraPreview(
+                                                        _controller,
+                                                      ),
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(16.0),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                FloatingActionButton(
+                                                  heroTag: 'captureButton',
+                                                  onPressed: _captureImage,
+                                                  child: Icon(Icons.camera),
+                                                  backgroundColor:
+                                                      Colors.blue.shade700,
+                                                ),
+                                                if (_capturedImage != null)
+                                                  SizedBox(width: 16),
+                                                if (_capturedImage != null)
+                                                  FloatingActionButton(
+                                                    heroTag: 'resetButton',
+                                                    onPressed: () {
+                                                      setState(() {
+                                                        _capturedImage = null;
+                                                      });
+                                                    },
+                                                    child: Icon(Icons.refresh),
+                                                    backgroundColor:
+                                                        Colors.orange,
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                      : Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
