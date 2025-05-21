@@ -6,6 +6,7 @@ import android.util.Log
 import com.ncinga.temi.service.DetectionService
 import com.ncinga.temi.service.FaceRecognitionService
 import com.ncinga.temi.service.FollowingService
+import com.ncinga.temi.service.NavigationMapService
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -28,6 +29,7 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private var ttsService: TTSService? = null
     private var followingService: FollowingService? = null
     private var faceRecognitionService: FaceRecognitionService? = null
+    private var navigationMapService: NavigationMapService? = null
     private val TAG = "TEMI"
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
@@ -46,7 +48,6 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
     private fun initializeRobot() {
         try {
-
             robot = Robot.getInstance()
             robot?.let {
                 movementService = RobotMovementService(it)
@@ -55,6 +56,7 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 followingService = FollowingService(channel, it)
                 faceRecognitionService =
                     FaceRecognitionService(channel, it, activity!!.applicationContext)
+                navigationMapService = NavigationMapService(channel, it)
                 robot?.requestToBeKioskApp()
                 robot?.setKioskModeOn(true, HomeScreenMode.APPLICATION)
                 Log.i(TAG, "service initialized")
@@ -110,6 +112,18 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 handlingStopFaceRecognition(call, result)
             }
 
+            "getLocations" -> {
+                handlingGetLocations(call, result)
+            }
+
+            "gotoLocation" -> {
+                handlingGoToLocation(call, result)
+            }
+
+            "deleteLocation" -> {
+                handlingDeleteLocation(call, result)
+            }
+
 
             else -> {
                 Log.w(TAG, "Method not implemented: ${call.method}")
@@ -117,6 +131,46 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             }
         }
     }
+
+    private fun handlingGetLocations(call: MethodCall, result: Result) {
+        try {
+            val locations = navigationMapService?.getLocations() ?: emptyList()
+            result.success(locations)
+        } catch (e: Exception) {
+            result.error("GET_LOCATIONS_ERROR", e.message, e.stackTraceToString())
+        }
+    }
+
+    private fun handlingGoToLocation(call: MethodCall, result: Result) {
+        val location = call.argument<String>("location")
+        if (location == null) {
+            result.error("INVALID_ARGUMENTS", "Location name is required", null)
+            return
+        }
+        try {
+            val success = navigationMapService?.goToLocation(location) ?: false
+            result.success(success)
+        } catch (e: Exception) {
+            result.error("GO_TO_ERROR", e.message, e.stackTraceToString())
+        }
+    }
+
+    private fun handlingDeleteLocation(call: MethodCall, result: Result) {
+        val locationName = call.argument<String>("name")
+
+        if (locationName == null) {
+            result.error("INVALID_ARGUMENTS", "Location name is required", null)
+            return
+        }
+
+        try {
+            val success = navigationMapService?.deleteLocation(locationName) ?: false
+            result.success(success)
+        } catch (e: Exception) {
+            result.error("DELETE_LOCATION_ERROR", e.message, e.stackTraceToString())
+        }
+    }
+
 
     private fun handlingStartSpeakListening(call: MethodCall, result: Result) {
         try {

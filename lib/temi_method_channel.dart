@@ -198,9 +198,9 @@ class MethodChannelTemi extends TemiPlatform {
   }
 
   @override
-  Future<bool> goTo(String location) async {
+  Future<bool> gotoLocation(String location) async {
     try {
-      final result = await methodChannel.invokeMethod<bool>('goTo', {
+      final result = await methodChannel.invokeMethod<bool>('gotoLocation', {
         'location': location,
       });
       return result ?? false;

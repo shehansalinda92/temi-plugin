@@ -63,6 +63,10 @@ class Temi {
     TemiPlatform.instance.setOnGoToLocationStatusChangedListener(callback);
   }
 
+  Future<bool> gotoLocation(String location) {
+    return TemiPlatform.instance.gotoLocation(location);
+  }
+
   void setOnTtsStatusChangedListener(
     Function(String id, String text, String status) callback,
   ) {
@@ -89,10 +93,6 @@ class Temi {
 
   Future<bool> stopFaceRecognition() {
     return TemiPlatform.instance.stopFaceRecognition();
-  }
-
-  Future<bool> goTo(String location) {
-    return TemiPlatform.instance.goTo(location);
   }
 
   Future<bool> followMe() {

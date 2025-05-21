@@ -91,10 +91,6 @@ abstract class TemiPlatform extends PlatformInterface {
     throw UnimplementedError('speak() has not been implemented.');
   }
 
-  Future<bool> goTo(String location) {
-    throw UnimplementedError('goTo() has not been implemented.');
-  }
-
   Future<bool> followMe() {
     throw UnimplementedError('followMe() has not been implemented.');
   }
@@ -113,6 +109,10 @@ abstract class TemiPlatform extends PlatformInterface {
 
   Future<bool> deleteLocation(String name) {
     throw UnimplementedError('deleteLocation() has not been implemented.');
+  }
+
+  Future<bool> gotoLocation(String location) {
+    throw UnimplementedError('gotoLocation() has not been implemented.');
   }
 
   Future<bool> setPrivacyMode(bool enabled) {
