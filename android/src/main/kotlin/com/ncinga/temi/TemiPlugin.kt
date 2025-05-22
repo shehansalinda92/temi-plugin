@@ -2,6 +2,7 @@ package com.ncinga.temi
 
 import android.app.Activity
 import android.content.Context
+import android.os.Environment
 import android.util.Log
 import com.ncinga.temi.service.DetectionService
 import com.ncinga.temi.service.FaceRecognitionService
@@ -18,6 +19,7 @@ import com.robotemi.sdk.Robot
 import com.ncinga.temi.service.RobotMovementService
 import com.ncinga.temi.service.TTSService
 import com.robotemi.sdk.constants.HomeScreenMode
+import java.io.File
 
 
 class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
@@ -31,6 +33,8 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private var faceRecognitionService: FaceRecognitionService? = null
     private var navigationMapService: NavigationMapService? = null
     private val TAG = "TEMI"
+    private var path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         Log.d(TAG, "onAttachedToEngine called")
@@ -44,6 +48,7 @@ class TemiPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         Log.d(TAG, "onAttachedToActivity called")
         activity = binding.activity
         initializeRobot()
+
     }
 
     private fun initializeRobot() {

@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:temi/temi.dart';
 import 'package:native_toast/native_toast.dart';
 
@@ -42,6 +43,7 @@ class _MyAppState extends State<MyApp> {
   bool _isCameraInitialized = false;
   XFile? _capturedImage;
   String regFace = "";
+  String _selectedLocation = "Not Select";
 
   Future<void> _moveRobot() async {
     final success = await _temi.skidJoy(_xValue, _yValue, smart: _smartMode);
@@ -52,21 +54,55 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  Future<void> _requestPermission() async {
+    var status = await Permission.storage.status;
+    if (!status.isGranted) {
+      await Permission.storage.request();
+    }
+  }
+
+  Future<void> _getSavedLocations() async {
+    _temi.getLocations().then((locations) {
+      setState(() {
+        _locations = locations;
+      });
+      print(locations);
+    });
+  }
+
+  Future<File> _createFileInPicturesDirectory(String fileName) async {
+    await _requestPermission();
+    Directory? picturesDir;
+    if (Platform.isAndroid) {
+      final directory = Directory('/storage/emulated/0/Pictures');
+      if (await directory.exists()) {
+        picturesDir = directory;
+      }
+    }
+
+    if (picturesDir == null) {
+      throw Exception("Pictures directory not found");
+    }
+
+    final file = File('${picturesDir.path}/$fileName');
+    print(file.path);
+    return file;
+  }
+
   Future<void> _updateRobotInfo() async {
     try {
       final battery = await _temi.getBatteryLevel();
-      final locations = await _temi.getLocations();
       final robotInfo = await _temi.getRobotInfo();
-
       setState(() {
         _batteryLevel = battery;
-        _locations = locations;
         _robotStatus = robotInfo.isNotEmpty ? 'Connected' : 'Disconnected';
       });
     } catch (e) {
       print('Error updating robot info: $e');
     }
   }
+
+  Future<void> _getLocation() async {}
 
   Future<void> _speakText() async {
     if (_currentSpeechText.isNotEmpty) {
@@ -125,6 +161,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _initializeCamera() async {
     try {
+      _requestPermission();
       _controller = CameraController(
         widget.cameras[0],
         ResolutionPreset.medium,
@@ -150,11 +187,11 @@ class _MyAppState extends State<MyApp> {
       final directory = await getApplicationDocumentsDirectory();
       final fileName =
           'temi_capture_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final savedImagePath = path.join(directory.path, fileName);
-
-      await File(image.path).copy(savedImagePath);
-      print('Image saved to: $savedImagePath');
-
+      // final savedImagePath = path.join(directory.path, fileName);
+      //
+      // await File(image.path).copy(savedImagePath);
+      //print('Image saved to: $savedImagePath');
+      _createFileInPicturesDirectory(fileName);
       _temi.speak("Image captured successfully");
     } catch (e) {
       print('Error capturing image: $e');
@@ -169,7 +206,7 @@ class _MyAppState extends State<MyApp> {
       enableUserTracking: false,
       privacyMode: false,
     );
-
+    _getSavedLocations();
     _initializeCamera();
 
     _temi.setupAllListeners(
@@ -552,7 +589,8 @@ class _MyAppState extends State<MyApp> {
                                   children: [
                                     Expanded(child: Text(location)),
                                     ElevatedButton(
-                                      onPressed: () => _temi.goTo(location),
+                                      onPressed:
+                                          () => _temi.gotoLocation(location),
                                       child: Text('Go To'),
                                     ),
                                   ],
@@ -790,6 +828,7 @@ class _MyAppState extends State<MyApp> {
                   ),
                 ),
               ),
+              SizedBox(height: 16),
             ],
           ),
         ),

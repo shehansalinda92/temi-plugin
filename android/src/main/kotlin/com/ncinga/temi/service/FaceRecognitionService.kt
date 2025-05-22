@@ -7,7 +7,10 @@ import android.net.Uri
 import android.util.Log
 import com.robotemi.sdk.Robot
 import com.robotemi.sdk.face.ContactModel
+import com.robotemi.sdk.face.OnContinuousFaceRecognizedListener
 import com.robotemi.sdk.face.OnFaceRecognizedListener
+import com.robotemi.sdk.listeners.OnGreetModeStateChangedListener
+import com.robotemi.sdk.sequence.OnSequencePlayStatusChangedListener
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONArray
 import org.json.JSONObject
@@ -17,14 +20,20 @@ class FaceRecognitionService(
     private val robot: Robot,
     private var context: Context
 ) :
-    OnFaceRecognizedListener {
+    OnFaceRecognizedListener, OnContinuousFaceRecognizedListener, OnGreetModeStateChangedListener,
+    OnSequencePlayStatusChangedListener {
     private var contentResolver: ContentResolver? = null
     private val TAG = "FaceRecognitionService"
 
 
     init {
+
         robot.addOnFaceRecognizedListener(this)
+        robot.addOnContinuousFaceRecognizedListener(this)
+        robot.addOnGreetModeStateChangedListener(this)
+        robot.addOnSequencePlayStatusChangedListener(this)
         contentResolver = context.contentResolver;
+        Log.i(TAG, "FaceRecognitionService -Init")
     }
 
 
@@ -84,5 +93,20 @@ class FaceRecognitionService(
 
     fun cleanUpRecognized() {
         robot.removeOnFaceRecognizedListener(this)
+        robot.removeOnContinuousFaceRecognizedListener(this)
+        robot.removeOnGreetModeStateChangedListener(this)
+        robot.removeOnSequencePlayStatusChangedListener(this)
+    }
+
+    override fun onContinuousFaceRecognized(contactModelList: List<ContactModel>) {
+        Log.i(TAG, "onContinuousFaceRecognized: ${contactModelList.size} faces recognized")
+    }
+
+    override fun onGreetModeStateChanged(state: Int) {
+        Log.i(TAG, "onGreetModeStateChanged: $state}")
+    }
+
+    override fun onSequencePlayStatusChanged(status: Int) {
+        Log.i(TAG, "onSequencePlayStatusChanged: $status}")
     }
 }
