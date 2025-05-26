@@ -136,7 +136,7 @@ class MethodChannelTemi extends TemiPlatform {
   void setOnTonFaceRecognizedListener(
     Function(Map<dynamic, dynamic> faceData) callback,
   ) {
-    _onTonFaceRecognizedChangedCallback = callback;
+    //_onTonFaceRecognizedChangedCallback = callback;
   }
 
   @override
