@@ -15,7 +15,7 @@ class MethodChannelTemi extends TemiPlatform {
   Function(int)? _onDetectionStateChangedCallback;
   Function(String, String, int, String)? _onGoToLocationStatusChangedCallback;
   Function(String, String, String)? _onTtsStatusChangedCallback;
-  Function(Map<dynamic, dynamic> faceData)? _onTonFaceRecognizedChangedCallback;
+  // Function(Map<dynamic, dynamic> faceData)? _onTonFaceRecognizedChangedCallback;
 
   MethodChannelTemi() {
     // Set up method call handler for receiving events from native side
